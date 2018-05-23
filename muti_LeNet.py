@@ -14,6 +14,12 @@ class mutiLeNet:
         self.dp_k = tf.placeholder(tf.float32)
         self.xs_reshape = tf.reshape(self.xs, [-1, 28, 28, 1])
         self.y_out = self.muti_LeNet(self.xs_reshape)
+
+        # key point
+        self.train_y_out = tf.nn.softmax(self.y_out)
+        # self.train_y_out = self.y_out
+        #
+
         self.loss = self.get_loss()
         self.train_step = tf.train.AdamOptimizer(0.0001).minimize(self.loss)
         self.correct_p = tf.equal(tf.argmax(self.y_out, 1), (tf.argmax(self.ys, 1)))
@@ -43,27 +49,39 @@ class mutiLeNet:
 
 
     def LeNet(self,input):
-        l_1 = self.conv(input,1,32,5)
+        l_1 = self.conv(input,1,16,5)
         l_1_p = self.pooling(l_1)
-        l_2 = self.conv(l_1_p,32,64,5)
+        l_2 = self.conv(l_1_p,16,32,5)
         l_2_p = self.pooling(l_2)
-        re = tf.reshape(l_2_p,[-1,7*7*64])
-        f_1 = self.addLayer(re,7*7*64,512,"relu")
-        f_2 = self.addLayer(f_1,512,512,"relu")
+        re = tf.reshape(l_2_p,[-1,7*7*32])
+        f_1 = self.addLayer(re,7*7*32,128,"relu")
+        f_2 = self.addLayer(f_1,128,128,"relu")
         dp = tf.nn.dropout(f_2,self.dp_k)
-        out = self.addLayer(dp,512,1)
+        out = self.addLayer(dp,128,1)
+        #key point 2
+        # out = tf.nn.softmax(out)
         return out
 
     def muti_LeNet(self,input):
-        out = tf.stack([self.LeNet(input), self.LeNet(input),self.LeNet(input),self.LeNet(input),self.LeNet(input),self.LeNet(input),self.LeNet(input),self.LeNet(input),self.LeNet(input),self.LeNet(input)])
+        out = tf.stack([self.LeNet(input),
+                        self.LeNet(input),
+                        self.LeNet(input),
+                        self.LeNet(input),
+                        self.LeNet(input),
+                        self.LeNet(input),
+                        self.LeNet(input),
+                        self.LeNet(input),
+                        self.LeNet(input),
+                        self.LeNet(input)],1)
         out = tf.reshape(out,[-1,10])
-        out = self.addLayer(out,10,10,"softmax")
-        # return tf.nn.softmax(out)
+        # out = tf.nn.sigmoid(out)
+        # out = tf.nn.softmax(out)
+        # out = self.addLayer(out,10,10,"softmax")
         return out
 
     def get_loss(self):
-        # return -tf.reduce_sum(self.ys*tf.log(self.y_out))
-        return tf.reduce_sum(tf.square(self.ys-self.y_out))
+        return -tf.reduce_sum(self.ys*tf.log(self.train_y_out))
+        # return tf.reduce_sum(tf.square(self.ys-self.y_out))
 
     def train(self):
         self.sess.run(tf.global_variables_initializer())
@@ -90,7 +108,17 @@ mutiLeNet_demo = mutiLeNet()
 mutiLeNet_demo.train()
 mutiLeNet_demo.save()
 mutiLeNet_demo.restore_model()
-testbatch = mnist.test.next_batch(10)
-print(mutiLeNet_demo.sess.run(mutiLeNet_demo.y_out,feed_dict={mutiLeNet_demo.xs:testbatch[0],mutiLeNet_demo.ys:testbatch[1],mutiLeNet_demo.dp_k:1.0}))
+testbatch = mnist.test.next_batch(1)
+print(mutiLeNet_demo.sess.run(mutiLeNet_demo.train_y_out,feed_dict={mutiLeNet_demo.xs:testbatch[0],mutiLeNet_demo.ys:testbatch[1],mutiLeNet_demo.dp_k:1.0}))
 plt.imshow(np.reshape(testbatch[0][0],[28,28]))
+plt.show()
+
+testbatch = mnist.test.next_batch(3)
+tutu_x = np.reshape(np.logical_or(testbatch[0][0],testbatch[0][1],dtype=bool),[-1,784])
+tutu_y = np.reshape((testbatch[1][0] + testbatch[1][1]),[-1,10])
+print(mutiLeNet_demo.sess.run(mutiLeNet_demo.train_y_out,feed_dict={mutiLeNet_demo.xs:tutu_x,
+                                                            mutiLeNet_demo.ys:tutu_y,
+                                                            mutiLeNet_demo.dp_k:1.0}))
+print(tutu_y)
+plt.imshow(np.reshape(testbatch[0][0]+testbatch[0][1],[28,28]))
 plt.show()
